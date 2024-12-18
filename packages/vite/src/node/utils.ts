@@ -1069,42 +1069,10 @@ function backwardCompatibleWorkerPlugins(plugins: any) {
   return []
 }
 
-type DeepWritable<T> =
-  T extends ReadonlyArray<unknown>
-    ? { -readonly [P in keyof T]: DeepWritable<T[P]> }
-    : T extends RegExp
-      ? RegExp
-      : T[keyof T] extends Function
-        ? T
-        : { -readonly [P in keyof T]: DeepWritable<T[P]> }
-
-function deepClone<T>(value: T): DeepWritable<T> {
-  if (Array.isArray(value)) {
-    return value.map((v) => deepClone(v)) as DeepWritable<T>
-  }
-  if (isObject(value)) {
-    const cloned: Record<string, any> = {}
-    for (const key in value) {
-      cloned[key] = deepClone(value[key])
-    }
-    return cloned as DeepWritable<T>
-  }
-  if (typeof value === 'function') {
-    return value as DeepWritable<T>
-  }
-  if (value instanceof RegExp) {
-    return structuredClone(value) as DeepWritable<T>
-  }
-  if (typeof value === 'object' && value != null) {
-    throw new Error('Cannot deep clone non-plain object')
-  }
-  return value as DeepWritable<T>
-}
-
 type MaybeFallback<D, V> = undefined extends V ? Exclude<V, undefined> | D : V
 
 type MergeWithDefaultsResult<D, V> =
-  Equal<D, undefined> extends true
+  Equal<() => D, undefined> extends true
     ? V
     : D extends Function | Array<any>
       ? MaybeFallback<D, V>
@@ -1154,10 +1122,8 @@ function mergeWithDefaultsRecursively<
 export function mergeWithDefaults<
   D extends Record<string, any>,
   V extends Record<string, any>,
->(defaults: D, values: V): MergeWithDefaultsResult<DeepWritable<D>, V> {
-  // NOTE: we need to clone the value here to avoid mutating the defaults
-  const clonedDefaults = deepClone(defaults)
-  return mergeWithDefaultsRecursively(clonedDefaults, values)
+>(defaults: () => D, values: V): MergeWithDefaultsResult<D, V> {
+  return mergeWithDefaultsRecursively(defaults(), values)
 }
 
 function mergeConfigRecursively(

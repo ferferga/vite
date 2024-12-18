@@ -190,7 +190,7 @@ export interface CSSModulesOptions {
       ) => string)
 }
 
-export const cssConfigDefaults = Object.freeze({
+export const cssConfigDefaults = () => ({
   /** @experimental */
   transformer: 'postcss',
   // modules

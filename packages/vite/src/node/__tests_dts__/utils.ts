@@ -3,45 +3,45 @@ import type { Equal, ExpectTrue } from '@type-challenges/utils'
 import { mergeWithDefaults } from '../utils'
 
 const useDefaultTypeForUndefined1 = mergeWithDefaults(
-  {
+  () => ({
     foo: 1,
-  },
+  }),
   {},
 )
 
 const useDefaultTypeForUndefined2 = mergeWithDefaults(
-  {
+  () => ({
     foo: 1,
-  },
+  }),
   {
     foo: 2 as number | undefined,
   },
 )
 
 const includeKeyNotIncludedInDefault1 = mergeWithDefaults(
-  {},
+  () => ({}),
   {
     foo: 2,
   },
 )
 
 const extendTypeWithValueType = mergeWithDefaults(
-  {
+  () => ({
     foo: 1,
-  },
+  }),
   {
     foo: 'string' as string | number,
   },
 )
 
-const plainObject = mergeWithDefaults({ foo: { bar: 1 } }, { foo: { baz: 2 } })
+const plainObject = mergeWithDefaults(() => ({ foo: { bar: 1 } }), { foo: { baz: 2 } })
 
 const nonPlainObject = mergeWithDefaults(
-  { foo: ['foo'] },
+  () => ({ foo: ['foo'] }),
   { foo: [0] as number[] | undefined },
 )
 
-const optionalNested = mergeWithDefaults({ foo: { bar: true } }, {
+const optionalNested = mergeWithDefaults(() => ({ foo: { bar: true } }), {
   foo: { bar: false },
 } as { foo?: { bar?: boolean } })
 

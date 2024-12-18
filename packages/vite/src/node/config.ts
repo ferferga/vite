@@ -601,7 +601,7 @@ export type ResolvedConfig = Readonly<
 >
 
 // inferred ones are omitted
-export const configDefaults = Object.freeze({
+export const configDefaults = () => ({
   define: {},
   dev: {
     warmup: [],
@@ -636,7 +636,7 @@ export const configDefaults = Object.freeze({
   html: {
     cspNonce: undefined,
   },
-  css: cssConfigDefaults,
+  css: cssConfigDefaults(),
   json: {
     namedExports: true,
     stringify: 'auto',
@@ -645,7 +645,7 @@ export const configDefaults = Object.freeze({
   assetsInclude: undefined,
   /** @experimental */
   builder: builderOptionsDefaults,
-  server: serverConfigDefaults,
+  server: serverConfigDefaults(),
   preview: {
     port: DEFAULT_PREVIEW_PORT,
     // strictPort
@@ -700,7 +700,7 @@ export const configDefaults = Object.freeze({
     /** @experimental */
     force: false,
   },
-  ssr: ssrConfigDefaults,
+  ssr: ssrConfigDefaults(),
   environments: {},
   appType: 'spa',
 } satisfies UserConfig)
@@ -713,8 +713,8 @@ export function resolveDevEnvironmentOptions(
   skipSsrTransform?: boolean,
 ): ResolvedDevEnvironmentOptions {
   const resolved = mergeWithDefaults(
-    {
-      ...configDefaults.dev,
+    () => ({
+      ...configDefaults().dev,
       sourcemapIgnoreList: isInNodeModules,
       preTransformRequests: consumer === 'client',
       createEnvironment:
@@ -726,7 +726,7 @@ export function resolveDevEnvironmentOptions(
         skipSsrTransform !== undefined && consumer === 'server'
           ? skipSsrTransform
           : consumer === 'server',
-    },
+    }),
     dev ?? {},
   )
   return {
@@ -872,18 +872,18 @@ function resolveEnvironmentResolveOptions(
   isSsrTargetWebworkerEnvironment?: boolean,
 ): ResolvedAllResolveOptions {
   const resolvedResolve: ResolvedAllResolveOptions = mergeWithDefaults(
-    {
-      ...configDefaults.resolve,
+    () => ({
+      ...configDefaults().resolve,
       mainFields:
         consumer === 'client' || isSsrTargetWebworkerEnvironment
-          ? DEFAULT_CLIENT_MAIN_FIELDS
-          : DEFAULT_SERVER_MAIN_FIELDS,
+          ? DEFAULT_CLIENT_MAIN_FIELDS as string[]
+          : DEFAULT_SERVER_MAIN_FIELDS as string[],
       conditions:
         consumer === 'client' || isSsrTargetWebworkerEnvironment
-          ? DEFAULT_CLIENT_CONDITIONS
+          ? DEFAULT_CLIENT_CONDITIONS as string[]
           : DEFAULT_SERVER_CONDITIONS.filter((c) => c !== 'browser'),
       enableBuiltinNoExternalCheck: !!isSsrTargetWebworkerEnvironment,
-    },
+    }),
     resolve ?? {},
   )
   resolvedResolve.preserveSymlinks = preserveSymlinks
@@ -911,10 +911,10 @@ function resolveResolveOptions(
 ): ResolvedAllResolveOptions {
   // resolve alias with internal client alias
   const alias = normalizeAlias(
-    mergeAlias(clientAlias, resolve?.alias || configDefaults.resolve.alias),
+    mergeAlias(clientAlias, resolve?.alias || configDefaults().resolve.alias),
   )
   const preserveSymlinks =
-    resolve?.preserveSymlinks ?? configDefaults.resolve.preserveSymlinks
+    resolve?.preserveSymlinks ?? configDefaults().resolve.preserveSymlinks
 
   if (alias.some((a) => a.find === '/')) {
     logger.warn(
@@ -941,14 +941,14 @@ function resolveDepOptimizationOptions(
   consumer: 'client' | 'server' | undefined,
 ): DepOptimizationOptions {
   return mergeWithDefaults(
-    {
-      ...configDefaults.optimizeDeps,
+    () => ({
+      ...configDefaults().optimizeDeps,
       disabled: undefined, // do not set here to avoid deprecation warning
       noDiscovery: consumer !== 'client',
       esbuildOptions: {
         preserveSymlinks,
       },
-    },
+    }),
     optimizeDeps ?? {},
   )
 }
@@ -1267,7 +1267,7 @@ export async function resolveConfig(
             resolvedRoot,
             typeof publicDir === 'string'
               ? publicDir
-              : configDefaults.publicDir,
+              : configDefaults().publicDir,
           ),
         )
       : ''
@@ -1373,7 +1373,7 @@ export async function resolveConfig(
     isProduction,
     plugins: userPlugins, // placeholder to be replaced
     css: resolveCSSOptions(config.css),
-    json: mergeWithDefaults(configDefaults.json, config.json ?? {}),
+    json: mergeWithDefaults(() => configDefaults().json, config.json ?? {}),
     esbuild:
       config.esbuild === false
         ? false
@@ -1574,7 +1574,7 @@ assetFileNames isn't equal for every build.rollupOptions.output. A single patter
  * electron or expects to deploy
  */
 export function resolveBaseUrl(
-  base: UserConfig['base'] = configDefaults.base,
+  base: UserConfig['base'] = configDefaults().base,
   isBuild: boolean,
   logger: Logger,
 ): string {
@@ -1756,7 +1756,7 @@ async function bundleConfigFile(
               external: [],
               noExternal: [],
               dedupe: [],
-              extensions: configDefaults.resolve.extensions,
+              extensions: configDefaults().resolve.extensions,
               preserveSymlinks: false,
               packageCache,
               isRequire,

@@ -1030,7 +1030,7 @@ function resolvedAllowDir(root: string, dir: string): string {
   return normalizePath(path.resolve(root, dir))
 }
 
-export const serverConfigDefaults = Object.freeze({
+export const serverConfigDefaults = () => ({
   port: DEFAULT_DEV_PORT,
   strictPort: false,
   host: 'localhost',
@@ -1065,11 +1065,11 @@ export function resolveServerOptions(
   logger: Logger,
 ): ResolvedServerOptions {
   const _server = mergeWithDefaults(
-    {
-      ...serverConfigDefaults,
+    () => ({
+      ...serverConfigDefaults(),
       host: undefined, // do not set here to detect whether host is set or not
       sourcemapIgnoreList: isInNodeModules,
-    },
+    }),
     raw ?? {},
   )
 

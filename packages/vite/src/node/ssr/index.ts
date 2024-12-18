@@ -53,7 +53,7 @@ export interface ResolvedSSROptions extends SSROptions {
   optimizeDeps: SsrDepOptimizationConfig
 }
 
-export const ssrConfigDefaults = Object.freeze({
+export const ssrConfigDefaults = () => ({
   // noExternal
   // external
   target: 'node',
@@ -68,5 +68,5 @@ export function resolveSSROptions(
   const defaults = mergeWithDefaults(ssrConfigDefaults, {
     optimizeDeps: { esbuildOptions: { preserveSymlinks } },
   } satisfies SSROptions)
-  return mergeWithDefaults(defaults, ssr ?? {})
+  return mergeWithDefaults(() => defaults, ssr ?? {})
 }

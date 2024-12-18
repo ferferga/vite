@@ -406,15 +406,15 @@ export function resolveBuildEnvironmentOptions(
     raw.modulePreload = { polyfill: false }
   }
 
-  const merged = mergeWithDefaults(
-    {
+  const merged = mergeWithDefaults(() =>
+    ({
       ...buildEnvironmentOptionsDefaults,
       cssCodeSplit: !raw.lib,
       minify: consumer === 'server' ? false : 'esbuild',
       ssr: consumer === 'server',
       emitAssets: consumer === 'client',
       createEnvironment: (name, config) => new BuildEnvironment(name, config),
-    } satisfies BuildEnvironmentOptions,
+    }) satisfies BuildEnvironmentOptions,
     raw,
   )
 
@@ -1500,7 +1500,7 @@ export function resolveBuilderOptions(
 ): ResolvedBuilderOptions | undefined {
   if (!options) return
   return mergeWithDefaults(
-    { ...builderOptionsDefaults, buildApp: defaultBuildApp },
+    () => ({ ...builderOptionsDefaults, buildApp: defaultBuildApp }),
     options,
   )
 }
