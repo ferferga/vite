@@ -40,15 +40,15 @@ export const ROLLUP_HOOKS = [
 export const VERSION = version as string
 
 const DEFAULT_MAIN_FIELDS = [
-  'browser',
   'module',
   'jsnext:main', // moment still uses this...
   'jsnext',
 ]
-export const DEFAULT_CLIENT_MAIN_FIELDS = Object.freeze(DEFAULT_MAIN_FIELDS)
-export const DEFAULT_SERVER_MAIN_FIELDS = Object.freeze(
-  DEFAULT_MAIN_FIELDS.filter((f) => f !== 'browser'),
-)
+export const DEFAULT_CLIENT_MAIN_FIELDS = Object.freeze([
+  'browser',
+  ...DEFAULT_MAIN_FIELDS,
+])
+export const DEFAULT_SERVER_MAIN_FIELDS = Object.freeze(DEFAULT_MAIN_FIELDS)
 
 /**
  * A special condition that would be replaced with production or development
