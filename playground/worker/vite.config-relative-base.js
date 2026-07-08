@@ -11,6 +11,7 @@ export default defineConfig(({ isPreview }) => ({
   worker: {
     format: 'es',
     plugins: () => [workerPluginTestPlugin()],
+    shareChunks: false,
     rolldownOptions: {
       output: {
         assetFileNames: 'worker-assets/worker_asset-[name]-[hash].[ext]',

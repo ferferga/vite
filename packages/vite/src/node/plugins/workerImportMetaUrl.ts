@@ -252,6 +252,21 @@ export function workerImportMetaUrlPlugin(config: ResolvedConfig): Plugin {
             config.bundleChain.at(-1) === cleanUrl(file)
           ) {
             s.update(expStart, expEnd, 'self.location.href')
+          } else if (
+            isBundled &&
+            this.environment.config.command === 'build' &&
+            workerType === 'module' &&
+            config.worker.shareChunks
+          ) {
+            const fileName = this.emitFile({
+              type: 'chunk',
+              id: cleanUrl(file),
+            })
+            s.update(
+              expStart,
+              expEnd,
+              `new URL(/* @vite-ignore */ import.meta.ROLLUP_FILE_URL_${fileName}, '' + import.meta.url)`,
+            )
           } else {
             let builtUrl: string
             if (isBundled) {

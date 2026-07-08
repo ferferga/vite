@@ -499,6 +499,8 @@ export interface UserConfig extends DefaultEnvironmentOptions {
     /**
      * Rolldown options to build worker bundle
      */
+    shareChunks?: boolean
+    shareChunkOnInline?: boolean
     rolldownOptions?: Omit<
       RolldownOptions,
       'plugins' | 'input' | 'onwarn' | 'preserveEntrySignatures'
@@ -644,6 +646,8 @@ export interface ResolvedWorkerOptions {
    */
   rollupOptions: RolldownOptions
   rolldownOptions: RolldownOptions
+  shareChunks: boolean
+  shareChunkOnInline: boolean
 }
 
 export interface InlineConfig extends UserConfig {
@@ -1903,6 +1907,8 @@ export async function resolveConfig(
     plugins: createWorkerPlugins,
     rollupOptions: config.worker?.rollupOptions || {},
     rolldownOptions: config.worker?.rolldownOptions, // will be set by setupRollupOptionCompat if undefined
+    shareChunks: config.worker?.shareChunks ?? true,
+    shareChunkOnInline: config.worker?.shareChunkOnInline ?? false,
   }
   setupRollupOptionCompat(resolvedWorkerOptions, 'worker')
 
