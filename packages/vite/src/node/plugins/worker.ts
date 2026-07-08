@@ -429,6 +429,7 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
           if (isWorker && config.bundleChain.at(-1) === cleanUrl(id)) {
             urlCode = 'self.location.href'
           } else if (
+            this.environment.config.command === 'build' &&
             format === 'es' &&
             config.worker.shareChunks &&
             (!inlineRE.test(id) || config.worker.shareChunkOnInline)
