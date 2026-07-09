@@ -11,7 +11,7 @@ import { createBackCompatIdResolver } from '../idResolver'
 import type { ResolveIdFn } from '../idResolver'
 import { cleanUrl, slash } from '../../shared/utils'
 import type { WorkerType } from './worker'
-import { WORKER_FILE_ID, workerFileToUrl } from './worker'
+import { WORKER_FILE_ID, workerFileToUrl, inlineRE } from './worker'
 import { fileToUrl, toOutputFilePathInJSForBundledDev } from './asset'
 import type { InternalResolveOptions } from './resolve'
 import { tryFsResolve } from './resolve'
@@ -257,7 +257,7 @@ export function workerImportMetaUrlPlugin(config: ResolvedConfig): Plugin {
             this.environment.config.command === 'build' &&
             workerType === 'module' &&
             config.worker.format === 'es' &&
-            config.worker.shareChunks
+            config.worker.shareChunks && (!inlineRE.test(file) || config.worker.shareChunkOnInline)
           ) {
             const fileName = this.emitFile({
               type: 'chunk',

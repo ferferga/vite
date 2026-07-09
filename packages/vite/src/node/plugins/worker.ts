@@ -154,7 +154,7 @@ export type WorkerType = 'classic' | 'module' | 'ignore'
 export const workerOrSharedWorkerRE: RegExp =
   /(?:\?|&)(worker|sharedworker)(?:&|$)/
 const workerFileRE = /(?:\?|&)worker_file&type=(\w+)(?:&|$)/
-const inlineRE = /[?&]inline\b/
+export const inlineRE = /[?&]inline\b/
 
 export const WORKER_FILE_ID = 'worker_file'
 const workerOutputCaches = new WeakMap<ResolvedConfig, WorkerOutputCache>()
@@ -579,7 +579,7 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
 
     ...(isBuild
       ? {
-          renderChunk(code, chunk, outputOptions) {
+                              renderChunk(code, chunk, outputOptions) {
             let s: MagicString
             const result = () => {
               return (

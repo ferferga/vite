@@ -1,0 +1,5 @@
+{
+  "name": "@vitejs/playground-worker-shared-chunks",
+  "private": true,
+  "type": "module"
+}

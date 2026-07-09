@@ -499,7 +499,17 @@ export interface UserConfig extends DefaultEnvironmentOptions {
     /**
      * Rolldown options to build worker bundle
      */
+    /**
+     * Whether to share chunks between the worker and the main bundle.
+     * Only works when `format` is `'es'`.
+     * @default true
+     */
     shareChunks?: boolean
+    /**
+     * Whether to share chunks between the inline worker and the main bundle.
+     * Only works when `format` is `'es'`.
+     * @default false
+     */
     shareChunkOnInline?: boolean
     rolldownOptions?: Omit<
       RolldownOptions,
