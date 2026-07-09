@@ -257,7 +257,8 @@ export function workerImportMetaUrlPlugin(config: ResolvedConfig): Plugin {
             this.environment.config.command === 'build' &&
             workerType === 'module' &&
             config.worker.format === 'es' &&
-            config.worker.shareChunks && (!inlineRE.test(file) || config.worker.shareChunkOnInline)
+            config.worker.shareChunks &&
+            (!inlineRE.test(file) || config.worker.shareChunkOnInline)
           ) {
             const fileName = this.emitFile({
               type: 'chunk',

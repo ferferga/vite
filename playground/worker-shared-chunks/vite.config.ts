@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   worker: {
-    format: 'es'
+    format: 'es',
   },
   build: {
     minify: false,
@@ -12,8 +12,8 @@ export default defineConfig({
           if (id.includes('shared.js')) {
             return 'shared'
           }
-        }
-      }
-    }
-  }
+        },
+      },
+    },
+  },
 })
