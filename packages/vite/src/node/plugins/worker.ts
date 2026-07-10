@@ -428,17 +428,6 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
         if (isBundled) {
           if (isWorker && config.bundleChain.at(-1) === cleanUrl(id)) {
             urlCode = 'self.location.href'
-          } else if (
-            this.environment.config.command === 'build' &&
-            format === 'es' &&
-            config.worker.shareChunks &&
-            (!inlineRE.test(id) || config.worker.shareChunkOnInline)
-          ) {
-            const fileName = this.emitFile({
-              type: 'chunk',
-              id: cleanUrl(id),
-            })
-            urlCode = `import.meta.ROLLUP_FILE_URL_${fileName}`
           } else if (inlineRE.test(id)) {
             const result = await bundleWorkerEntry(config, id)
             for (const file of result.watchedFiles) {
@@ -489,6 +478,17 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
               // Empty sourcemap to suppress Rollup warning
               map: { mappings: '' },
             }
+          } else if (
+            this.environment.config.command === 'build' &&
+            format === 'es' &&
+            config.worker.shareChunks &&
+            (!inlineRE.test(id) || config.worker.shareChunkOnInline)
+          ) {
+            const fileName = this.emitFile({
+              type: 'chunk',
+              id: cleanUrl(id),
+            })
+            urlCode = `import.meta.ROLLUP_FILE_URL_${fileName}`
           } else {
             const result = await workerFileToUrl(config, id)
             let url: string

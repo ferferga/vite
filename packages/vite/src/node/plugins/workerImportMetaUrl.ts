@@ -267,7 +267,7 @@ export function workerImportMetaUrlPlugin(config: ResolvedConfig): Plugin {
             s.update(
               expStart,
               expEnd,
-              `new URL(/* @vite-ignore */ import.meta.ROLLUP_FILE_URL_${fileName}, '' + import.meta.url)`,
+              `import.meta.ROLLUP_FILE_URL_${fileName}`,
             )
           } else {
             let builtUrl: string

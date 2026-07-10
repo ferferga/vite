@@ -501,13 +501,13 @@ export interface UserConfig extends DefaultEnvironmentOptions {
      */
     /**
      * Whether to share chunks between the worker and the main bundle.
-     * Only works when `format` is `'es'`.
+     * Only works when `format` is 'es'.
      * @default true
      */
     shareChunks?: boolean
     /**
      * Whether to share chunks between the inline worker and the main bundle.
-     * Only works when `format` is `'es'`.
+     * Only works when `format` is 'es'.
      * @default false
      */
     shareChunkOnInline?: boolean
@@ -1916,9 +1916,9 @@ export async function resolveConfig(
     format: config.worker?.format || 'iife',
     plugins: createWorkerPlugins,
     rollupOptions: config.worker?.rollupOptions || {},
-    rolldownOptions: config.worker?.rolldownOptions, // will be set by setupRollupOptionCompat if undefined
+    rolldownOptions: config.worker?.rolldownOptions,
     shareChunks: config.worker?.shareChunks ?? true,
-    shareChunkOnInline: config.worker?.shareChunkOnInline ?? false,
+    shareChunkOnInline: config.worker?.shareChunkOnInline ?? false, // will be set by setupRollupOptionCompat if undefined
   }
   setupRollupOptionCompat(resolvedWorkerOptions, 'worker')
 

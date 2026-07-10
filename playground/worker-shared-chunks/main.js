@@ -1,12 +1,12 @@
 import { data } from './shared.js'
+import Worker1 from './worker1.js?worker'
+import Worker2 from './worker2.js?worker'
 import InlineWorker from './inline-worker.js?worker&inline'
 
-const worker1 = new Worker(new URL('./worker1.js', import.meta.url), {
-  type: 'module',
-})
-const worker2 = new Worker(new URL('./worker2.js', import.meta.url), {
-  type: 'module',
-})
+console.log('App starting with ?worker imports');
+
+const worker1 = new Worker1()
+const worker2 = new Worker2()
 const inlineWorker = new InlineWorker()
 
 document.querySelector('.main-res').textContent = 'main:' + data

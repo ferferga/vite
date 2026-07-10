@@ -10,8 +10,8 @@ export default defineConfig(({ isPreview }) => ({
   },
   worker: {
     format: 'es',
-    plugins: () => [workerPluginTestPlugin()],
     shareChunks: false,
+    plugins: () => [workerPluginTestPlugin()],
     rolldownOptions: {
       output: {
         assetFileNames: 'worker-assets/worker_asset-[name]-[hash].[ext]',
