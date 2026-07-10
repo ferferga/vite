@@ -3,7 +3,7 @@ import Worker1 from './worker1.js?worker'
 import Worker2 from './worker2.js?worker'
 import InlineWorker from './inline-worker.js?worker&inline'
 
-console.log('App starting with ?worker imports');
+console.log('App starting with ?worker imports')
 
 const worker1 = new Worker1()
 const worker2 = new Worker2()

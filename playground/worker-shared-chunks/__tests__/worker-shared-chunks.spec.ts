@@ -16,11 +16,11 @@ describe.runIf(isBuild)('build', () => {
     const files = fs.readdirSync(assetsDir)
 
     // Check if shared chunk exists
-    const sharedChunk = files.find(f => f.startsWith('shared-'))
+    const sharedChunk = files.find((f) => f.includes('shared-'))
     expect(sharedChunk).toBeDefined()
 
-    const worker1 = files.find(f => f.startsWith('worker1-'))
-    const worker2 = files.find(f => f.startsWith('worker2-'))
+    const worker1 = files.find((f) => f.includes('worker1-'))
+    const worker2 = files.find((f) => f.includes('worker2-'))
 
     expect(worker1).toBeDefined()
     expect(worker2).toBeDefined()

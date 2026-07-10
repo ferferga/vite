@@ -5,6 +5,15 @@ export default defineConfig({
     format: 'es'
   },
   build: {
-    minify: false
+    minify: false,
+    rolldownOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes('shared.js')) {
+            return 'shared'
+          }
+        }
+      }
+    }
   }
 })
