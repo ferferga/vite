@@ -1,2 +1,1 @@
-export const data = 'shared-data'
-export const largeData = 'x'.repeat(10000)
+export const msg = 'shared message ' + 'a'.repeat(500);

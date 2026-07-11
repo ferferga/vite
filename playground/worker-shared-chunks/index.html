@@ -1,9 +1,10 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
-  <body>
-    <div class="main-res"></div>
-    <div class="worker1-res"></div>
-    <div class="worker2-res"></div>
-    <script type="module" src="./main.js"></script>
-  </body>
+<body>
+  <script type="module">
+    import { msg } from './shared.js'
+    const worker1 = new Worker(new URL('./worker1.js', import.meta.url), { type: 'module' })
+    worker1.onmessage = (e) => console.log(e.data)
+  </script>
+</body>
 </html>

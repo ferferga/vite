@@ -306,6 +306,8 @@ async function bundleWorkerEntry(
 }
 
 export const workerAssetUrlRE: RegExp = /__VITE_WORKER_ASSET__([a-z\d]{8})__/g
+export const workerChunkUrlRE: RegExp =
+  /__VITE_WORKER_CHUNK__([\w$!~%\\{\\}\\d]+)__/g
 
 export async function workerFileToUrl(
   config: ResolvedConfig,
@@ -507,7 +509,7 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
             type: 'chunk',
             id: cleanUrl(id),
           })
-          urlCode = 'import.meta.ROLLUP_FILE_URL_' + referenceId
+          urlCode = "import.meta.ROLLUP_FILE_URL_" + referenceId
         } else {
           let url = await fileToUrl(this, cleanUrl(id))
           url = injectQuery(url, `${WORKER_FILE_ID}&type=${workerType}`)
@@ -579,8 +581,8 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
 
     ...(isBuild
       ? {
-          renderChunk(code, chunk, outputOptions) {
-            let s: MagicString
+                    renderChunk(code, chunk, outputOptions) {
+            let s: MagicString | undefined
             const result = () => {
               return (
                 s && {
@@ -591,14 +593,9 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
                 }
               )
             }
+
             workerAssetUrlRE.lastIndex = 0
             if (workerAssetUrlRE.test(code)) {
-              const toRelativeRuntime =
-                createToImportMetaURLBasedRelativeRuntime(
-                  outputOptions.format,
-                  this.environment.config.isWorker,
-                )
-
               let match: RegExpExecArray | null
               s = new MagicString(code)
               workerAssetUrlRE.lastIndex = 0
@@ -607,6 +604,10 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
               const workerOutputCache = workerOutputCaches.get(
                 config.mainConfig || config,
               )!
+              const toRelativeRuntime = createToImportMetaURLBasedRelativeRuntime(
+                outputOptions.format,
+                this.environment.config.isWorker,
+              )
 
               while ((match = workerAssetUrlRE.exec(code))) {
                 const [full, hash] = match
