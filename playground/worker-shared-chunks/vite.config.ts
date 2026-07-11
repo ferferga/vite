@@ -9,9 +9,7 @@ export default defineConfig({
     rolldownOptions: {
       output: {
         manualChunks: (id) => {
-          if (id.includes('shared.js')) {
-            return 'shared'
-          }
+           if (id.includes('shared.js')) return 'shared-chunk'
         }
       }
     }

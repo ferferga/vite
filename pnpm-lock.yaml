@@ -1857,8 +1857,6 @@ importers:
         specifier: file:./dep-cjs
         version: file:playground/worker/dep-cjs
 
-  playground/worker-shared-chunks: {}
-
   playground/worker/dep-cjs: {}
 
   playground/worker/dep-self-reference-url-worker: {}

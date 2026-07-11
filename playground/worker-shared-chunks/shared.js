@@ -1,2 +1,2 @@
 export const data = 'shared-data'
-export const largeData = 'x'.repeat(10000);
+export const largeData = 'x'.repeat(10000)

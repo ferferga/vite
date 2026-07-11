@@ -306,7 +306,6 @@ async function bundleWorkerEntry(
 }
 
 export const workerAssetUrlRE: RegExp = /__VITE_WORKER_ASSET__([a-z\d]{8})__/g
-export const workerChunkUrlRE: RegExp = /__VITE_WORKER_CHUNK__([\w$]+)__/g
 
 export async function workerFileToUrl(
   config: ResolvedConfig,
@@ -504,11 +503,11 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
           config.worker.shareChunks &&
           (!inlineRE.test(id) || config.worker.shareChunkOnInline)
         ) {
-          const fileName = this.emitFile({
+          const referenceId = this.emitFile({
             type: 'chunk',
             id: cleanUrl(id),
           })
-          urlCode = '__VITE_WORKER_CHUNK__' + fileName + '__'
+          urlCode = 'import.meta.ROLLUP_FILE_URL_' + referenceId
         } else {
           let url = await fileToUrl(this, cleanUrl(id))
           url = injectQuery(url, `${WORKER_FILE_ID}&type=${workerType}`)
@@ -581,7 +580,7 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
     ...(isBuild
       ? {
           renderChunk(code, chunk, outputOptions) {
-            let s: MagicString | undefined
+            let s: MagicString
             const result = () => {
               return (
                 s && {
@@ -592,15 +591,14 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
                 }
               )
             }
-
-            const toRelativeRuntime = () =>
-              createToImportMetaURLBasedRelativeRuntime(
-                outputOptions.format,
-                this.environment.config.isWorker,
-              )
-
             workerAssetUrlRE.lastIndex = 0
             if (workerAssetUrlRE.test(code)) {
+              const toRelativeRuntime =
+                createToImportMetaURLBasedRelativeRuntime(
+                  outputOptions.format,
+                  this.environment.config.isWorker,
+                )
+
               let match: RegExpExecArray | null
               s = new MagicString(code)
               workerAssetUrlRE.lastIndex = 0
@@ -624,48 +622,12 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
                   'asset',
                   chunk.fileName,
                   'js',
-                  toRelativeRuntime(),
+                  toRelativeRuntime,
                 )
                 const replacementString =
                   typeof replacement === 'string'
                     ? JSON.stringify(encodeURIPath(replacement)).slice(1, -1)
                     : `"+${replacement.runtime}+"`
-                s.update(
-                  match.index,
-                  match.index + full.length,
-                  replacementString,
-                )
-              }
-            }
-
-            workerChunkUrlRE.lastIndex = 0
-            if (workerChunkUrlRE.test(code)) {
-              let match: RegExpExecArray | null
-              s ||= new MagicString(code)
-              workerChunkUrlRE.lastIndex = 0
-
-              while ((match = workerChunkUrlRE.exec(code))) {
-                const [full, referenceId] = match
-                const filename = this.getFileName(referenceId)
-                const replacement = toOutputFilePathInJS(
-                  this.environment,
-                  filename,
-                  'asset',
-                  chunk.fileName,
-                  'js',
-                  toRelativeRuntime(),
-                )
-
-                let replacementString
-                if (typeof replacement === 'string') {
-                  // Prepend base manually if it's absolute to ensure it works in preview
-                  // Actually toOutputFilePathInJS should already do it if base is set.
-                  // But let's wrap it in new URL().href for maximum robustness if it's relative
-                  replacementString = `new URL(${JSON.stringify(encodeURIPath(replacement))}, import.meta.url).href`
-                } else {
-                  replacementString = `new URL("+${replacement.runtime}+", import.meta.url).href`
-                }
-
                 s.update(
                   match.index,
                   match.index + full.length,

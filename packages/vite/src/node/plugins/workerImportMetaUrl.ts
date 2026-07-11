@@ -11,7 +11,7 @@ import { createBackCompatIdResolver } from '../idResolver'
 import type { ResolveIdFn } from '../idResolver'
 import { cleanUrl, slash } from '../../shared/utils'
 import type { WorkerType } from './worker'
-import { WORKER_FILE_ID, workerFileToUrl, inlineRE } from './worker'
+import { WORKER_FILE_ID, workerFileToUrl } from './worker'
 import { fileToUrl, toOutputFilePathInJSForBundledDev } from './asset'
 import type { InternalResolveOptions } from './resolve'
 import { tryFsResolve } from './resolve'
@@ -258,16 +258,16 @@ export function workerImportMetaUrlPlugin(config: ResolvedConfig): Plugin {
             workerType === 'module' &&
             config.worker.format === 'es' &&
             config.worker.shareChunks &&
-            (!inlineRE.test(file) || config.worker.shareChunkOnInline)
+            (!/[?&]inline\b/.test(file) || config.worker.shareChunkOnInline)
           ) {
-            const fileName = this.emitFile({
+            const referenceId = this.emitFile({
               type: 'chunk',
               id: cleanUrl(file),
             })
             s.update(
               expStart,
               expEnd,
-              '__VITE_WORKER_CHUNK__' + fileName + '__',
+              'import.meta.ROLLUP_FILE_URL_' + referenceId,
             )
           } else {
             let builtUrl: string
