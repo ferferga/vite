@@ -267,7 +267,7 @@ export function workerImportMetaUrlPlugin(config: ResolvedConfig): Plugin {
             s.update(
               expStart,
               expEnd,
-              '__VITE_WORKER_CHUNK__' + referenceId + '__',
+              'import.meta.ROLLUP_FILE_URL_' + referenceId,
             )
           } else {
             let builtUrl: string
