@@ -606,6 +606,11 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
               )
             }
 
+            const toRelativeRuntime = createToImportMetaURLBasedRelativeRuntime(
+              outputOptions.format,
+              this.environment.config.isWorker,
+            )
+
             workerAssetUrlRE.lastIndex = 0
             if (workerAssetUrlRE.test(code)) {
               let match: RegExpExecArray | null
@@ -616,11 +621,6 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
               const workerOutputCache = workerOutputCaches.get(
                 config.mainConfig || config,
               )!
-              const toRelativeRuntime =
-                createToImportMetaURLBasedRelativeRuntime(
-                  outputOptions.format,
-                  this.environment.config.isWorker,
-                )
 
               while ((match = workerAssetUrlRE.exec(code))) {
                 const [full, hash] = match
@@ -642,6 +642,40 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
                   typeof replacement === 'string'
                     ? JSON.stringify(encodeURIPath(replacement)).slice(1, -1)
                     : `"+${replacement.runtime}+"`
+                s.update(
+                  match.index,
+                  match.index + full.length,
+                  replacementString,
+                )
+              }
+            }
+
+            workerChunkUrlRE.lastIndex = 0
+            if (workerChunkUrlRE.test(code)) {
+              let match: RegExpExecArray | null
+              s ||= new MagicString(code)
+              workerChunkUrlRE.lastIndex = 0
+
+              while ((match = workerChunkUrlRE.exec(code))) {
+                const [full, referenceId] = match
+                const filename = this.getFileName(referenceId)
+                const replacement = toOutputFilePathInJS(
+                  this.environment,
+                  filename,
+                  'asset',
+                  chunk.fileName,
+                  'js',
+                  toRelativeRuntime,
+                )
+
+                let replacementString
+                if (typeof replacement === 'string') {
+                  const resolvedUrl = encodeURIPath(replacement)
+                  replacementString = `new URL("${resolvedUrl}", import.meta.url).href`
+                } else {
+                  replacementString = `new URL("+${replacement.runtime}+", import.meta.url).href`
+                }
+
                 s.update(
                   match.index,
                   match.index + full.length,
