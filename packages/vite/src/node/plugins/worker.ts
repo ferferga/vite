@@ -308,14 +308,11 @@ async function bundleWorkerEntry(
 }
 
 export const workerAssetUrlRE: RegExp = /__VITE_WORKER_ASSET__([a-z\d]{8})__/g
-export const workerChunkUrlRE: RegExp =
-  /__VITE_WORKER_CHUNK__([\w$!~%\\{\\}\\d]+)__/g
 
 export async function workerFileToUrl(
   config: ResolvedConfig,
   id: string,
 ): Promise<WorkerBundle> {
-  console.log('workerFileToUrl called for id:', id)
   const workerOutput = workerOutputCaches.get(config.mainConfig || config)!
   const bundle = await bundleWorkerEntry(config, id)
   workerOutput.saveAsset(
@@ -395,12 +392,6 @@ export function webWorkerPostPlugin(_config: ResolvedConfig): Plugin {
 }
 
 export function webWorkerPlugin(config: ResolvedConfig): Plugin {
-  console.log(
-    'webWorkerPlugin function loaded! command:',
-    config.command,
-    'isWorker:',
-    config.isWorker,
-  )
   const isBuild = config.command === 'build'
   const isWorker = config.isWorker
 
@@ -413,7 +404,6 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
     buildStart() {
       if (isWorker) return
       emittedAssets.clear()
-      emittedWorkerReferenceIds.set(config, new Set())
       emittedWorkerReferenceIds.set(config, new Set())
     },
 
@@ -438,7 +428,6 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
         }`
 
         let urlCode: string
-
         if (
           this.environment.config.command === 'build' &&
           format === 'es' &&
@@ -453,7 +442,7 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
             emittedWorkerReferenceIds.set(config, new Set())
           }
           emittedWorkerReferenceIds.get(config)!.add(referenceId)
-          urlCode = '__VITE_WORKER_CHUNK__' + referenceId + '__'
+          urlCode = 'import.meta.ROLLUP_FILE_URL_' + referenceId
         } else if (isBundled) {
           if (isWorker && config.bundleChain.at(-1) === cleanUrl(id)) {
             urlCode = 'self.location.href'
@@ -526,17 +515,6 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
               this.addWatchFile(file)
             }
           }
-        } else if (
-          this.environment.config.command === 'build' &&
-          format === 'es' &&
-          config.worker.shareChunks &&
-          (!inlineRE.test(id) || config.worker.shareChunkOnInline)
-        ) {
-          const referenceId = this.emitFile({
-            type: 'chunk',
-            id: cleanUrl(id),
-          })
-          urlCode = 'import.meta.ROLLUP_FILE_URL_' + referenceId
         } else {
           let url = await fileToUrl(this, cleanUrl(id))
           url = injectQuery(url, `${WORKER_FILE_ID}&type=${workerType}`)
@@ -609,7 +587,7 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
     ...(isBuild
       ? {
           renderChunk(code, chunk, outputOptions) {
-            let s: MagicString | undefined
+            let s: MagicString
             const result = () => {
               return (
                 s && {
@@ -620,14 +598,14 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
                 }
               )
             }
-
-            const toRelativeRuntime = createToImportMetaURLBasedRelativeRuntime(
-              outputOptions.format,
-              this.environment.config.isWorker,
-            )
-
             workerAssetUrlRE.lastIndex = 0
             if (workerAssetUrlRE.test(code)) {
+              const toRelativeRuntime =
+                createToImportMetaURLBasedRelativeRuntime(
+                  outputOptions.format,
+                  this.environment.config.isWorker,
+                )
+
               let match: RegExpExecArray | null
               s = new MagicString(code)
               workerAssetUrlRE.lastIndex = 0
@@ -657,40 +635,6 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
                   typeof replacement === 'string'
                     ? JSON.stringify(encodeURIPath(replacement)).slice(1, -1)
                     : `"+${replacement.runtime}+"`
-                s.update(
-                  match.index,
-                  match.index + full.length,
-                  replacementString,
-                )
-              }
-            }
-
-            workerChunkUrlRE.lastIndex = 0
-            if (workerChunkUrlRE.test(code)) {
-              let match: RegExpExecArray | null
-              s ||= new MagicString(code)
-              workerChunkUrlRE.lastIndex = 0
-
-              while ((match = workerChunkUrlRE.exec(code))) {
-                const [full, referenceId] = match
-                const filename = this.getFileName(referenceId)
-                const replacement = toOutputFilePathInJS(
-                  this.environment,
-                  filename,
-                  'asset',
-                  chunk.fileName,
-                  'js',
-                  toRelativeRuntime,
-                )
-
-                let replacementString
-                if (typeof replacement === 'string') {
-                  const resolvedUrl = encodeURIPath(replacement)
-                  replacementString = `new URL("${resolvedUrl}", import.meta.url).href`
-                } else {
-                  replacementString = `new URL("+${replacement.runtime}+", import.meta.url).href`
-                }
-
                 s.update(
                   match.index,
                   match.index + full.length,
@@ -772,8 +716,6 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
           }
         }
       }
-
-      // Original assets emitting loop
 
       for (const asset of workerOutputCaches.get(config)!.getAssets()) {
         if (emittedAssets.has(asset.fileName)) continue

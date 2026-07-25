@@ -26,7 +26,6 @@ export default defineConfig({
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name].js',
         manualChunks(id) {
-          console.log('manualChunks id:', id)
           if (id.includes('workerImport')) {
             return 'shared-worker-import-chunk'
           }
