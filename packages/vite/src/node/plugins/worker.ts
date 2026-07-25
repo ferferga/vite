@@ -1,3 +1,4 @@
+import { getImportMap } from './html'
 import path from 'node:path'
 import MagicString from 'magic-string'
 import type { RolldownOutput, RollupError } from 'rolldown'
@@ -158,6 +159,7 @@ export const inlineRE: RegExp = /[?&]inline\b/
 
 export const WORKER_FILE_ID = 'worker_file'
 const workerOutputCaches = new WeakMap<ResolvedConfig, WorkerOutputCache>()
+const emittedWorkerReferenceIds = new WeakMap<ResolvedConfig, Set<string>>()
 
 async function bundleWorkerEntry(
   config: ResolvedConfig,
@@ -313,6 +315,7 @@ export async function workerFileToUrl(
   config: ResolvedConfig,
   id: string,
 ): Promise<WorkerBundle> {
+  console.log('workerFileToUrl called for id:', id)
   const workerOutput = workerOutputCaches.get(config.mainConfig || config)!
   const bundle = await bundleWorkerEntry(config, id)
   workerOutput.saveAsset(
@@ -392,6 +395,12 @@ export function webWorkerPostPlugin(_config: ResolvedConfig): Plugin {
 }
 
 export function webWorkerPlugin(config: ResolvedConfig): Plugin {
+  console.log(
+    'webWorkerPlugin function loaded! command:',
+    config.command,
+    'isWorker:',
+    config.isWorker,
+  )
   const isBuild = config.command === 'build'
   const isWorker = config.isWorker
 
@@ -404,6 +413,8 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
     buildStart() {
       if (isWorker) return
       emittedAssets.clear()
+      emittedWorkerReferenceIds.set(config, new Set())
+      emittedWorkerReferenceIds.set(config, new Set())
     },
 
     load: {
@@ -438,7 +449,11 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
             type: 'chunk',
             id: cleanUrl(id),
           })
-          urlCode = 'import.meta.ROLLUP_FILE_URL_' + referenceId
+          if (!emittedWorkerReferenceIds.has(config)) {
+            emittedWorkerReferenceIds.set(config, new Set())
+          }
+          emittedWorkerReferenceIds.get(config)!.add(referenceId)
+          urlCode = '__VITE_WORKER_CHUNK__' + referenceId + '__'
         } else if (isBundled) {
           if (isWorker && config.bundleChain.at(-1) === cleanUrl(id)) {
             urlCode = 'self.location.href'
@@ -688,7 +703,7 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
         }
       : {}),
 
-    generateBundle(opts, bundle) {
+    async generateBundle(opts, bundle) {
       // to avoid emitting duplicate assets for modern build and legacy build
       if (
         this.environment.config.isOutputOptionsForLegacyChunks?.(opts) ||
@@ -696,6 +711,70 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
       ) {
         return
       }
+
+      // Rewrite import-mapped imports in worker chunks to use physical filenames
+      const referenceIds = emittedWorkerReferenceIds.get(config)
+      if (
+        config.build.chunkImportMap &&
+        referenceIds &&
+        referenceIds.size > 0
+      ) {
+        const importMap = getImportMap(bundle, config)
+        if (importMap) {
+          const { mapping } = importMap
+          const workerFilenames = new Set<string>()
+          for (const refId of referenceIds) {
+            try {
+              workerFilenames.add(this.getFileName(refId))
+            } catch {}
+          }
+
+          for (const file in bundle) {
+            if (workerFilenames.has(file)) {
+              const chunk = bundle[file]
+              if (chunk && chunk.type === 'chunk') {
+                await init
+                let imports: readonly ImportSpecifier[]
+                try {
+                  imports = parse(chunk.code)[0]
+                } catch {
+                  continue
+                }
+
+                let s: MagicString | undefined
+                for (const imp of imports) {
+                  const specifier = imp.n
+                  if (specifier) {
+                    // Resolve relative path
+                    const resolvedPath = path.posix.join(
+                      path.posix.dirname(chunk.fileName),
+                      specifier,
+                    )
+                    const mappedPath = mapping[resolvedPath]
+                    if (mappedPath) {
+                      let relativeImport = path.posix.relative(
+                        path.posix.dirname(chunk.fileName),
+                        mappedPath,
+                      )
+                      if (!relativeImport.startsWith('.')) {
+                        relativeImport = './' + relativeImport
+                      }
+                      s ||= new MagicString(chunk.code)
+                      s.update(imp.s, imp.e, relativeImport)
+                    }
+                  }
+                }
+                if (s) {
+                  chunk.code = s.toString()
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Original assets emitting loop
+
       for (const asset of workerOutputCaches.get(config)!.getAssets()) {
         if (emittedAssets.has(asset.fileName)) continue
         emittedAssets.add(asset.fileName)

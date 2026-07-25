@@ -1917,7 +1917,7 @@ export async function resolveConfig(
     plugins: createWorkerPlugins,
     rollupOptions: config.worker?.rollupOptions || {},
     rolldownOptions: config.worker?.rolldownOptions,
-    shareChunks: config.worker?.shareChunks ?? !config.build?.chunkImportMap,
+    shareChunks: config.worker?.shareChunks ?? true,
     shareChunkOnInline: config.worker?.shareChunkOnInline ?? false, // will be set by setupRollupOptionCompat if undefined
   }
   setupRollupOptionCompat(resolvedWorkerOptions, 'worker')
