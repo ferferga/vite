@@ -1,4 +1,3 @@
-import { getImportMap } from './html'
 import path from 'node:path'
 import MagicString from 'magic-string'
 import type { RolldownOutput, RollupError } from 'rolldown'
@@ -586,8 +585,8 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
 
     ...(isBuild
       ? {
-          renderChunk(code, chunk, outputOptions) {
-            let s: MagicString
+          async renderChunk(code, chunk, outputOptions) {
+            let s: MagicString | undefined
             const result = () => {
               return (
                 s && {
@@ -598,16 +597,70 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
                 }
               )
             }
+
+            const referenceIds = emittedWorkerReferenceIds.get(config)
+            const isWorkerChunk = (() => {
+              if (referenceIds) {
+                for (const refId of referenceIds) {
+                  try {
+                    if (this.getFileName(refId) === chunk.fileName) {
+                      return true
+                    }
+                  } catch {}
+                }
+              }
+              return false
+            })()
+
+            if (isWorkerChunk) {
+              await init
+              let imports: readonly ImportSpecifier[]
+              try {
+                imports = parse(code)[0]
+              } catch {
+                return result()
+              }
+
+              for (const imp of imports) {
+                const specifier = imp.n
+                if (specifier) {
+                  // The unhashed name base is e.g. "comlink" or "rolldown-runtime"
+                  const specifierBase = path.posix
+                    .basename(specifier)
+                    .split('-')[0]
+
+                  // Find a matching chunk in chunk.imports
+                  const matchedImport = chunk.imports.find((importedFile) => {
+                    const importedBase = path.posix
+                      .basename(importedFile)
+                      .split('-')[0]
+                    return importedBase === specifierBase
+                  })
+
+                  if (matchedImport) {
+                    let relativeImport = path.posix.relative(
+                      path.posix.dirname(chunk.fileName),
+                      matchedImport,
+                    )
+                    if (!relativeImport.startsWith('.')) {
+                      relativeImport = './' + relativeImport
+                    }
+                    s ||= new MagicString(code)
+                    s.update(imp.s, imp.e, relativeImport)
+                  }
+                }
+              }
+            }
+
+            const toRelativeRuntime = createToImportMetaURLBasedRelativeRuntime(
+              outputOptions.format,
+              this.environment.config.isWorker,
+            )
+
             workerAssetUrlRE.lastIndex = 0
             if (workerAssetUrlRE.test(code)) {
-              const toRelativeRuntime =
-                createToImportMetaURLBasedRelativeRuntime(
-                  outputOptions.format,
-                  this.environment.config.isWorker,
-                )
-
               let match: RegExpExecArray | null
-              s = new MagicString(code)
+              s ||= new MagicString(code)
               workerAssetUrlRE.lastIndex = 0
 
               // Replace "__VITE_WORKER_ASSET__5aa0ddc0__" using relative paths
@@ -647,7 +700,7 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
         }
       : {}),
 
-    async generateBundle(opts, bundle) {
+    generateBundle(opts, bundle) {
       // to avoid emitting duplicate assets for modern build and legacy build
       if (
         this.environment.config.isOutputOptionsForLegacyChunks?.(opts) ||
@@ -655,68 +708,6 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
       ) {
         return
       }
-
-      // Rewrite import-mapped imports in worker chunks to use physical filenames
-      const referenceIds = emittedWorkerReferenceIds.get(config)
-      if (
-        config.build.chunkImportMap &&
-        referenceIds &&
-        referenceIds.size > 0
-      ) {
-        const importMap = getImportMap(bundle, config)
-        if (importMap) {
-          const { mapping } = importMap
-          const workerFilenames = new Set<string>()
-          for (const refId of referenceIds) {
-            try {
-              workerFilenames.add(this.getFileName(refId))
-            } catch {}
-          }
-
-          for (const file in bundle) {
-            if (workerFilenames.has(file)) {
-              const chunk = bundle[file]
-              if (chunk && chunk.type === 'chunk') {
-                await init
-                let imports: readonly ImportSpecifier[]
-                try {
-                  imports = parse(chunk.code)[0]
-                } catch {
-                  continue
-                }
-
-                let s: MagicString | undefined
-                for (const imp of imports) {
-                  const specifier = imp.n
-                  if (specifier) {
-                    // Resolve relative path
-                    const resolvedPath = path.posix.join(
-                      path.posix.dirname(chunk.fileName),
-                      specifier,
-                    )
-                    const mappedPath = mapping[resolvedPath]
-                    if (mappedPath) {
-                      let relativeImport = path.posix.relative(
-                        path.posix.dirname(chunk.fileName),
-                        mappedPath,
-                      )
-                      if (!relativeImport.startsWith('.')) {
-                        relativeImport = './' + relativeImport
-                      }
-                      s ||= new MagicString(chunk.code)
-                      s.update(imp.s, imp.e, relativeImport)
-                    }
-                  }
-                }
-                if (s) {
-                  chunk.code = s.toString()
-                }
-              }
-            }
-          }
-        }
-      }
-
       for (const asset of workerOutputCaches.get(config)!.getAssets()) {
         if (emittedAssets.has(asset.fileName)) continue
         emittedAssets.add(asset.fileName)
