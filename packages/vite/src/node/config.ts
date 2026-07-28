@@ -478,10 +478,6 @@ export interface UserConfig extends DefaultEnvironmentOptions {
    */
   worker?: {
     /**
-     * Share chunk on inline workers
-     */
-    shareChunkOnInline?: boolean
-    /**
      * Output format for worker bundle
      * @default 'iife'
      */
@@ -503,6 +499,18 @@ export interface UserConfig extends DefaultEnvironmentOptions {
     /**
      * Rolldown options to build worker bundle
      */
+    /**
+     * Whether to share chunks between the worker and the main bundle.
+     * Only works when `format` is 'es'.
+     * @default true
+     */
+    shareChunks?: boolean
+    /**
+     * Whether to share chunks between the inline worker and the main bundle.
+     * Only works when `format` is 'es'.
+     * @default false
+     */
+    shareChunkOnInline?: boolean
     rolldownOptions?: Omit<
       RolldownOptions,
       'plugins' | 'input' | 'onwarn' | 'preserveEntrySignatures'
@@ -641,7 +649,6 @@ export interface LegacyOptions {
 }
 
 export interface ResolvedWorkerOptions {
-  shareChunkOnInline: boolean
   format: 'es' | 'iife'
   plugins: (bundleChain: string[]) => Promise<ResolvedConfig>
   /**
@@ -649,6 +656,8 @@ export interface ResolvedWorkerOptions {
    */
   rollupOptions: RolldownOptions
   rolldownOptions: RolldownOptions
+  shareChunks: boolean
+  shareChunkOnInline: boolean
 }
 
 export interface InlineConfig extends UserConfig {
@@ -1904,11 +1913,12 @@ export async function resolveConfig(
   > & {
     rolldownOptions: ResolvedWorkerOptions['rolldownOptions'] | undefined
   } = {
-    shareChunkOnInline: !!config.worker?.shareChunkOnInline,
     format: config.worker?.format || 'iife',
     plugins: createWorkerPlugins,
     rollupOptions: config.worker?.rollupOptions || {},
-    rolldownOptions: config.worker?.rolldownOptions, // will be set by setupRollupOptionCompat if undefined
+    rolldownOptions: config.worker?.rolldownOptions,
+    shareChunks: config.worker?.shareChunks ?? true,
+    shareChunkOnInline: config.worker?.shareChunkOnInline ?? false, // will be set by setupRollupOptionCompat if undefined
   }
   setupRollupOptionCompat(resolvedWorkerOptions, 'worker')
 

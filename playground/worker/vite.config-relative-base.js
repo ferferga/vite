@@ -10,6 +10,7 @@ export default defineConfig(({ isPreview }) => ({
   },
   worker: {
     format: 'es',
+    shareChunks: false,
     plugins: () => [workerPluginTestPlugin()],
     rolldownOptions: {
       output: {

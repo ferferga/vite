@@ -27,9 +27,6 @@ import { cleanUrl } from '../../shared/utils'
 import type { Logger } from '../logger'
 import { fileToUrl, toOutputFilePathInJSForBundledDev } from './asset'
 
-export const emittedWorkerUrlRE: RegExp = /"__VITE_EMITTED_WORKER__([\w$]+)__"/g
-export const emittedWorkersCaches = globalThis.emittedWorkersCaches || (globalThis.emittedWorkersCaches = new WeakMap())
-
 type WorkerBundle = {
   entryFilename: string
   entryCode: string
@@ -84,7 +81,6 @@ class WorkerOutputCache {
   }
 
   saveAsset(asset: WorkerBundleAsset, logger: Logger) {
-
     const duplicateAsset = this.assets.get(asset.fileName)
     if (duplicateAsset) {
       if (!isSameContent(duplicateAsset.source, asset.source)) {
@@ -158,10 +154,11 @@ export type WorkerType = 'classic' | 'module' | 'ignore'
 export const workerOrSharedWorkerRE: RegExp =
   /(?:\?|&)(worker|sharedworker)(?:&|$)/
 const workerFileRE = /(?:\?|&)worker_file&type=(\w+)(?:&|$)/
-const inlineRE = /[?&]inline\b/
+export const inlineRE: RegExp = /[?&]inline\b/
 
 export const WORKER_FILE_ID = 'worker_file'
 const workerOutputCaches = new WeakMap<ResolvedConfig, WorkerOutputCache>()
+const emittedWorkerReferenceIds = new WeakMap<ResolvedConfig, Set<string>>()
 
 async function bundleWorkerEntry(
   config: ResolvedConfig,
@@ -400,35 +397,18 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
   workerOutputCaches.set(config, new WorkerOutputCache())
   const emittedAssets = new Set<string>()
 
-  const cacheKey = config.mainConfig || config
-  if (!emittedWorkersCaches.has(cacheKey)) {
-    emittedWorkersCaches.set(cacheKey, new Map())
-  }
-  const emittedWorkersMap = emittedWorkersCaches.get(cacheKey)!
-
   return {
     name: 'vite:worker',
 
     buildStart() {
       if (isWorker) return
       emittedAssets.clear()
-      emittedWorkersMap.clear()
-    },
-
-    resolveId: {
-      filter: { id: workerOrSharedWorkerRE },
-      handler(id, importer) {
-        if (importer && cleanUrl(id) === cleanUrl(importer)) {
-          return injectQuery(id, "self_referential=true")
-        }
-      },
+      emittedWorkerReferenceIds.set(config, new Set())
     },
 
     load: {
       filter: { id: workerOrSharedWorkerRE },
       async handler(id) {
-
-        const isSelfReferential = /[?&]self_referential\b/.test(id)
         const workerMatch = workerOrSharedWorkerRE.exec(id)
         if (!workerMatch) return
 
@@ -447,22 +427,24 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
         }`
 
         let urlCode: string
-        if (isBundled) {
-          if (isSelfReferential) {
+        if (
+          this.environment.config.command === 'build' &&
+          format === 'es' &&
+          config.worker.shareChunks &&
+          (!inlineRE.test(id) || config.worker.shareChunkOnInline)
+        ) {
+          const referenceId = this.emitFile({
+            type: 'chunk',
+            id: cleanUrl(id),
+          })
+          if (!emittedWorkerReferenceIds.has(config)) {
+            emittedWorkerReferenceIds.set(config, new Set())
+          }
+          emittedWorkerReferenceIds.get(config)!.add(referenceId)
+          urlCode = 'import.meta.ROLLUP_FILE_URL_' + referenceId
+        } else if (isBundled) {
+          if (isWorker && config.bundleChain.at(-1) === cleanUrl(id)) {
             urlCode = 'self.location.href'
-          } else if (isWorker && config.bundleChain.at(-1) === cleanUrl(id)) {
-            urlCode = 'self.location.href'
-          } else if (!isWorker && config.worker.format === 'es' && (!inlineRE.test(id) || config.worker.shareChunkOnInline)) {
-            const workerId = cleanUrl(id)
-            let referenceId = emittedWorkersMap.get(workerId)
-            if (!referenceId) {
-              referenceId = this.emitFile({
-                type: 'chunk',
-                id: workerId,
-              })
-              emittedWorkersMap.set(workerId, referenceId)
-            }
-            urlCode = `"__VITE_EMITTED_WORKER__${referenceId}__"`
           } else if (inlineRE.test(id)) {
             const result = await bundleWorkerEntry(config, id)
             for (const file of result.watchedFiles) {
@@ -603,7 +585,7 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
 
     ...(isBuild
       ? {
-          renderChunk(code, chunk, outputOptions) {
+          async renderChunk(code, chunk, outputOptions) {
             let s: MagicString | undefined
             const result = () => {
               return (
@@ -615,16 +597,70 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
                 }
               )
             }
+
+            const referenceIds = emittedWorkerReferenceIds.get(config)
+            const isWorkerChunk = (() => {
+              if (referenceIds) {
+                for (const refId of referenceIds) {
+                  try {
+                    if (this.getFileName(refId) === chunk.fileName) {
+                      return true
+                    }
+                  } catch {}
+                }
+              }
+              return false
+            })()
+
+            if (isWorkerChunk) {
+              await init
+              let imports: readonly ImportSpecifier[]
+              try {
+                imports = parse(code)[0]
+              } catch {
+                return result()
+              }
+
+              for (const imp of imports) {
+                const specifier = imp.n
+                if (specifier) {
+                  // The unhashed name base is e.g. "comlink" or "rolldown-runtime"
+                  const specifierBase = path.posix
+                    .basename(specifier)
+                    .split('-')[0]
+
+                  // Find a matching chunk in chunk.imports
+                  const matchedImport = chunk.imports.find((importedFile) => {
+                    const importedBase = path.posix
+                      .basename(importedFile)
+                      .split('-')[0]
+                    return importedBase === specifierBase
+                  })
+
+                  if (matchedImport) {
+                    let relativeImport = path.posix.relative(
+                      path.posix.dirname(chunk.fileName),
+                      matchedImport,
+                    )
+                    if (!relativeImport.startsWith('.')) {
+                      relativeImport = './' + relativeImport
+                    }
+                    s ||= new MagicString(code)
+                    s.update(imp.s, imp.e, relativeImport)
+                  }
+                }
+              }
+            }
+
+            const toRelativeRuntime = createToImportMetaURLBasedRelativeRuntime(
+              outputOptions.format,
+              this.environment.config.isWorker,
+            )
+
             workerAssetUrlRE.lastIndex = 0
             if (workerAssetUrlRE.test(code)) {
-              const toRelativeRuntime =
-                createToImportMetaURLBasedRelativeRuntime(
-                  outputOptions.format,
-                  this.environment.config.isWorker,
-                )
-
               let match: RegExpExecArray | null
-              s = new MagicString(code)
+              s ||= new MagicString(code)
               workerAssetUrlRE.lastIndex = 0
 
               // Replace "__VITE_WORKER_ASSET__5aa0ddc0__" using relative paths
@@ -659,42 +695,6 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
                 )
               }
             }
-
-            emittedWorkerUrlRE.lastIndex = 0
-            if (emittedWorkerUrlRE.test(code)) {
-              const toRelativeRuntime =
-                createToImportMetaURLBasedRelativeRuntime(
-                  outputOptions.format,
-                  this.environment.config.isWorker,
-                )
-
-              let match: RegExpExecArray | null
-              s ||= new MagicString(code)
-              emittedWorkerUrlRE.lastIndex = 0
-
-              while ((match = emittedWorkerUrlRE.exec(code))) {
-                const [full, referenceId] = match
-                const filename = this.getFileName(referenceId)
-                const replacement = toOutputFilePathInJS(
-                  this.environment,
-                  filename,
-                  'asset',
-                  chunk.fileName,
-                  'js',
-                  toRelativeRuntime,
-                )
-                const replacementString =
-                  typeof replacement === 'string'
-                    ? JSON.stringify(encodeURIPath(replacement))
-                    : replacement.runtime
-                s.update(
-                  match.index,
-                  match.index + full.length,
-                  replacementString,
-                )
-              }
-            }
-
             return result()
           },
         }
@@ -708,7 +708,7 @@ export function webWorkerPlugin(config: ResolvedConfig): Plugin {
       ) {
         return
       }
-       for (const asset of workerOutputCaches.get(config)!.getAssets()) {
+      for (const asset of workerOutputCaches.get(config)!.getAssets()) {
         if (emittedAssets.has(asset.fileName)) continue
         emittedAssets.add(asset.fileName)
 

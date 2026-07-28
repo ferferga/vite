@@ -10,6 +10,7 @@ export default defineConfig({
   },
   worker: {
     format: 'es',
+    shareChunks: false,
     plugins: () => [workerPluginTestPlugin()],
     rolldownOptions: {
       output: {

@@ -40,6 +40,7 @@ export async function setup(project: TestProject): Promise<void> {
   )
   // also setup dedicated copy for "variant" tests
   const dedicatedCopyList: Record<string, string[]> = {
+    worker: ['shared-chunks'],
     assets: ['encoded-base', 'relative-base', 'runtime-base', 'url-base'],
     css: ['lightningcss'],
     'transform-plugin': ['base'],

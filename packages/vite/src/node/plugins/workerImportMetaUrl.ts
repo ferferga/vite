@@ -248,11 +248,27 @@ export function workerImportMetaUrlPlugin(config: ResolvedConfig): Plugin {
 
           if (
             isBundled &&
-            (config.isWorker
-              ? config.bundleChain.at(-1) === cleanUrl(file)
-              : cleanUrl(id) === cleanUrl(file))
+            config.isWorker &&
+            config.bundleChain.at(-1) === cleanUrl(file)
           ) {
             s.update(expStart, expEnd, 'self.location.href')
+          } else if (
+            isBundled &&
+            this.environment.config.command === 'build' &&
+            workerType === 'module' &&
+            config.worker.format === 'es' &&
+            config.worker.shareChunks &&
+            (!/[?&]inline\b/.test(file) || config.worker.shareChunkOnInline)
+          ) {
+            const referenceId = this.emitFile({
+              type: 'chunk',
+              id: cleanUrl(file),
+            })
+            s.update(
+              expStart,
+              expEnd,
+              'import.meta.ROLLUP_FILE_URL_' + referenceId,
+            )
           } else {
             let builtUrl: string
             if (isBundled) {
