@@ -248,8 +248,9 @@ export function workerImportMetaUrlPlugin(config: ResolvedConfig): Plugin {
 
           if (
             isBundled &&
-            config.isWorker &&
-            config.bundleChain.at(-1) === cleanUrl(file)
+            (config.isWorker
+              ? config.bundleChain.at(-1) === cleanUrl(file)
+              : cleanUrl(id) === cleanUrl(file))
           ) {
             s.update(expStart, expEnd, 'self.location.href')
           } else {

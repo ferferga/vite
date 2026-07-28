@@ -478,6 +478,10 @@ export interface UserConfig extends DefaultEnvironmentOptions {
    */
   worker?: {
     /**
+     * Share chunk on inline workers
+     */
+    shareChunkOnInline?: boolean
+    /**
      * Output format for worker bundle
      * @default 'iife'
      */
@@ -637,6 +641,7 @@ export interface LegacyOptions {
 }
 
 export interface ResolvedWorkerOptions {
+  shareChunkOnInline: boolean
   format: 'es' | 'iife'
   plugins: (bundleChain: string[]) => Promise<ResolvedConfig>
   /**
@@ -1899,6 +1904,7 @@ export async function resolveConfig(
   > & {
     rolldownOptions: ResolvedWorkerOptions['rolldownOptions'] | undefined
   } = {
+    shareChunkOnInline: !!config.worker?.shareChunkOnInline,
     format: config.worker?.format || 'iife',
     plugins: createWorkerPlugins,
     rollupOptions: config.worker?.rollupOptions || {},
